@@ -93,3 +93,7 @@ settings.ini
 
 # Editors
 .idea
+
+# Simple helper to prevent important files from being pushed
+*.ini
+*.pem
