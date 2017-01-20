@@ -14,14 +14,14 @@ class LimitedDict(collections.OrderedDict):
     """
     def __init__(self, max_size, *args, **kwargs):
         super(LimitedDict, self).__init__(*args, **kwargs)
-        self.__max_size = max_size
+        self._max_size = max_size
 
     def __setitem__(self, key, value, **kwargs):
         super(LimitedDict, self).__setitem__(key, value, **kwargs)
-        self.__enforce_size_limit()
+        self._enforce_size_limit()
 
-    def __enforce_size_limit(self):
-        while len(self) > self.__max_size:
+    def _enforce_size_limit(self):
+        while len(self) > self._max_size:
             self.popitem(last=False)
 
 

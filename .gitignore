@@ -95,5 +95,5 @@ settings.ini
 .idea
 
 # Simple helper to prevent important files from being pushed
-*.ini
+settings.ini
 *.pem

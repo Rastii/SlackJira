@@ -135,9 +135,9 @@ class SlackJira(object):
         """
 
         # Store the authenticated jira instance for future queries
-        self.__jira = authed_jira
+        self._jira = authed_jira
         # Store all known projects so we only query issues in known projects
-        self.__projects_lookup = self.get_project_lookup()
+        self._projects_lookup = self.get_project_lookup()
 
     @property
     def jira(self):
@@ -145,7 +145,7 @@ class SlackJira(object):
         :rtype: jira.JIRA
         :return: Property provides direct access to the authenticated JIRA object
         """
-        return self.__jira
+        return self._jira
 
     def is_project(self, project):
         """
@@ -158,10 +158,10 @@ class SlackJira(object):
         :rtype: bool
         :return: Boolean signifying if the project was found
         """
-        return self.__projects_lookup.get(project, False)
+        return self._projects_lookup.get(project, False)
 
     def get_project_lookup(self):
-        return {getattr(k, "key"): True for k in self.__jira.projects()}
+        return {getattr(k, "key"): True for k in self._jira.projects()}
 
     def get_projects(self, refresh=False):
         """
@@ -175,9 +175,9 @@ class SlackJira(object):
         :return: Returns a list of all the known projects in the JIRA server
         """
         if refresh:
-            self.__projects_lookup = self.get_project_lookup()
+            self._projects_lookup = self.get_project_lookup()
 
-        return self.__projects_lookup.keys()
+        return self._projects_lookup.keys()
 
     def __get_attr_helper(self, object, field, default=None):
         """
@@ -217,7 +217,7 @@ class SlackJira(object):
             return logger.warning("Attempted to retrieve invalid ticket: %s", issue)
 
         try:
-            result = self.__jira.issue(
+            result = self._jira.issue(
                 issue,
                 fields=[
                     "summary",
@@ -257,26 +257,15 @@ class SlackJira(object):
         """
         Instantiates a JiraSlack object from a ConfigParser object.
 
-        This includes parsing out OAUTH credentials and the server location AND
-        authenticating to the server with the provided credentials.  The authenticated
-        JIRA object is then injected into the SlackJira object.
-
-        NOTE: Due to the way INI files work, the key_cert value must NOT contain any
-              newline characters.
-
-        There needs to be two sections in the config file, the first section contains
-        server information such as the following:
-
-        [server]
-        server = <ip_of_server>
-
-        The second section needs the oauth credentials, such as the following:
-
-        [oauth]
+        The ConfigParser must be extracted from a config that looks like the following:
+        [jira]
+        server = The JIRA server location
         access_token = The OAUTH access token (obtained by doing the OAUTH dance)
         access_token_secret = The OAUTH access token secret (obtained by doing the OAUTH dance)
         consumer_key = The JIRA consumer key as defined in JIRA
         key_cert_path = The path to the private key of the key pair used to configure in JIRA
+
+        Additional documentation can be found in `settings.template.ini`
 
         :type conf: ConfigParser.ConfigParser
         :param conf: The config object to parse settings from

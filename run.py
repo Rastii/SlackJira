@@ -15,6 +15,7 @@ def get_argparser_args(args):
         "-c", "--config", dest="config", default="config.ini", metavar="PATH",
         help="Specify configuration file",
     )
+    # TODO Add daemon option :-)
     return parser.parse_args()
 
 def do_run(args):
