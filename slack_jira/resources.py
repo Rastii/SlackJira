@@ -299,10 +299,12 @@ class SlackJira(object):
 
 
 class SlackBotConfig(object):
-    def __init__(self, api_token, bot_emoji=None, bot_icon=None):
+    def __init__(self, api_token, slackbot_plugins, bot_emoji=None, bot_icon=None, errors_to=None):
         self._api_token = api_token
         self._bot_emoji = bot_emoji
         self._bot_icon = bot_icon
+        self._errors_to = errors_to
+        self._slackbot_plugins = slackbot_plugins
 
 
     def load_into_settings_module(self, module):
@@ -327,10 +329,11 @@ class SlackBotConfig(object):
         if self._bot_icon:
             module.BOT_ICON = self._bot_icon
 
+        if self._errors_to:
+            module.ERRORS_TO = self._errors_to
+
         # TODO: Perhaps figure out a better way to do this...
-        module.PLUGINS = [
-            'slack_jira.slackbot_plugins'
-        ]
+        module.PLUGINS = set(self._slackbot_plugins)
 
     @staticmethod
     def from_config(conf, section="slackbot"):
@@ -348,12 +351,15 @@ class SlackBotConfig(object):
         :raises: ConfigError: When the config did not contain the specified section
             or required options.
         """
-        api_token = get_config_value(conf, section, "api_token")
-        bot_emoji = get_config_value(conf, section, "bot_emoji", required=False)
-        bot_icon = get_config_value(conf, section, "bot_icon", required=False)
+        get_conf = functools.partial(get_config_value, conf, section)
+
+        conf_slackbot_plugins = get_conf("slackbot_plugins")
+        plugins = [p.strip() for p in conf_slackbot_plugins.split(",")]
 
         return SlackBotConfig(
-            api_token=api_token,
-            bot_emoji=bot_emoji,
-            bot_icon=bot_icon,
+            api_token=get_conf("api_token"),
+            slackbot_plugins=plugins,
+            bot_emoji=get_conf("bot_emoji", required=False),
+            bot_icon=get_conf("bot_icon", required=False),
+            errors_to=get_conf("errors_to", required=False),
         )

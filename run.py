@@ -22,6 +22,9 @@ def do_run(args):
     args = get_argparser_args(args)
     config_file = args.config
     logging.config.fileConfig(config_file)
+    logger = logging.getLogger(__name__)
+
+    logger.info("Loading configurations")
     config = resources.load_config_from_path(config_file)
     slackbot_config = resources.SlackBotConfig.from_config(config)
 
@@ -31,6 +34,7 @@ def do_run(args):
     # Load the config into the settings...
     slackbot.settings.SLACK_JIRA_CONF = config
 
+    logger.info("Starting slackbot")
     bot = slackbot.bot.Bot()
     bot.run()
 
