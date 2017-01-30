@@ -218,7 +218,7 @@ class JiraMessageHandler(object):
 
         :param message: The message, as returned by slackbot
         """
-        issues = self.JIRA_ISSUE_RE.findall(message.body.get("text", ""))
+        issues = [i.upper() for i in self.JIRA_ISSUE_RE.findall(message.body.get("text", ""))]
 
         # If we exceed our max jira mentions in one message, ignore the message
         if len(issues) > self._max_issues:
