@@ -18,6 +18,7 @@ def get_argparser_args(args):
     # TODO Add daemon option :-)
     return parser.parse_args()
 
+
 def do_run(args):
     args = get_argparser_args(args)
     config_file = args.config

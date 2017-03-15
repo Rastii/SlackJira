@@ -2,6 +2,7 @@ import logging
 import collections
 import re
 import time
+import functools
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,51 @@ class LimitedDict(collections.OrderedDict):
             self.popitem(last=False)
 
 
+class JiraMessageTimer(object):
+    """
+    Keeps track of jira messages per channel in respect to the last time they were seen
+    """
+    def __init__(self, ticket_cache_size, response_threshold):
+        """
+        :param response_threshold: The number (in seconds) of when to retrieve information about
+            a ticket since its last mention
+        :type response_threshold: int
+        :param ticket_cache_size: Timed issue mentions per channel modulus size
+        :type ticket_cache_size: int
+        """
+        self._timer_cache = collections.defaultdict(lambda: LimitedDict(ticket_cache_size))
+        self._response_threshold = response_threshold
+
+    def check_issue(self, channel_id, issue):
+        """
+        Checks to see if an issue was not recently mentioned
+
+        :param channel_id: The ID of the channell
+        :param issue: THe JIRA ticket
+        :type issue: str
+
+        :rtype: bool
+        :return: Boolean based on the validity
+        """
+        last_mention = self._timer_cache[channel_id].get(issue)
+
+        if last_mention and (int(time.time()) - self._response_threshold <= last_mention):
+            return False
+
+        return True
+
+    def log_issues(self, channel_id, issues):
+        """
+        Logs the issues with the current time for the specified channel id
+
+        :param channel_id: The slack channel identifier
+        :param issues: Iterable sequence of issues
+        """
+        now = int(time.time())
+        for i in issues:
+            self._timer_cache[channel_id][i] = now
+
+
 class JiraMessageHandler(object):
     """
     Object is responsible for handling messages that contain JIRA issues.
@@ -34,9 +80,9 @@ class JiraMessageHandler(object):
     once during the `response_threshold` interval, additional information will not be
     displayed.
     """
-    JIRA_ISSUE_RE_STR = "[A-Z]{1,10}-[0-9]+"
+    JIRA_ISSUE_RE_STR = "!?[A-Z]{1,10}-[0-9]+"
     JIRA_ISSUE_RE = re.compile(JIRA_ISSUE_RE_STR, re.IGNORECASE)
-    # JIRA limits you to 20 attachments for a message, this will be the upperbound of max_issues
+    # JIRA limits you to 20 attachments for a message, this will be the upper bound of max_issues
     MAX_JIRA_ATTACHMENTS = 20
 
     DEFAULT_MAX_ISSUES = 5
@@ -44,7 +90,7 @@ class JiraMessageHandler(object):
     DEFAULT_TICKET_CACHE_SIZE = 5
 
     def __init__(self, slack_jira, max_issues=None, response_threshold=None,
-                 ticket_cache_size=None):
+                 ticket_cache_size=None, full_attachments=True):
         """
         :type slack_jira: slack_jira.resource.SlackJira
         :param slack_jira: The initialized slack jira object that will be used to retrieve
@@ -63,6 +109,9 @@ class JiraMessageHandler(object):
             minutes and the ticket_cache_size is 5 and we had 6 (seperate) tickets mentioned in
             less than 15 minutes, the response_threshold will no longer apply since the last
             response time will not be stored in the "cache".
+        :type full_attachments: bool
+        :param full_attachments: Boolean that specifies whether or not to show long attachments,
+            that is responding to jira tickets that prefix with ! with additional information.
         """
         if not max_issues:
             max_issues = self.DEFAULT_MAX_ISSUES
@@ -81,10 +130,11 @@ class JiraMessageHandler(object):
             max_issues = self.MAX_JIRA_ATTACHMENTS
 
         self._slack_jira = slack_jira
-        self._response_threshold = response_threshold
         self._max_issues = max_issues
-        self._channel_cache = collections.defaultdict(lambda: LimitedDict(ticket_cache_size))
+        self._message_timer = JiraMessageTimer(ticket_cache_size, response_threshold)
+        self._full_attachments = full_attachments
 
+    # TODO: Move these static methods into a separate module
     @staticmethod
     def status_name_to_color(status_name):
         """
@@ -128,33 +178,15 @@ class JiraMessageHandler(object):
         :rtype: dict
         :return: A dictionary that contains the proper key values for a slack attachment
         """
-        status = summary.status.name
-        attachment = {
-            "title": "[{}] - {}".format(summary.issue, summary.title),
-            "title_link": summary.link,
-            "text": summary.description,
-            "fallback": "[{}] - {}".format(summary.issue, summary.title),
-            "footer": "Assigned to {}".format(summary.assignee),
-            "fields": [
-                {
-                    "title": "Priority",
-                    "value": summary.priority.name,
-                    "short": True
-                },
-                {
-                    "title": "Status",
-                    "value": status,
-                    "short": True
-                },
-            ],
-            "color": JiraMessageHandler.status_name_to_color(status),
-        }
+        attachment = JiraMessageHandler.get_short_attachment(summary)
 
+        # Add full description and time estimation info to attachment
+        attachment["text"] = summary.description
         if summary.original_estimate and summary.remaining_estimate:
-            attachment["fields"].append({
-                "title": "Original Estimate / Remaining Estimate",
-                "value": "{} / {}".format(summary.original_estimate, summary.remaining_estimate),
-            })
+            attachment["fields"] = {
+                "title": u"Original Estimate / Remaining Estimate",
+                "value": u"{} / {}".format(summary.original_estimate, summary.remaining_estimate),
+            }
 
         return attachment
 
@@ -177,13 +209,16 @@ class JiraMessageHandler(object):
         :return: A dictionary that contains the proper key values for a slack attachment
         """
         status = summary.status.name
+        footer = u"{status} - {priority} - {assigned}".format(
+            status=status,
+            priority=summary.priority.name,
+            assigned=(
+                u"This ticket is currently unassigned" if not summary.assignee else
+                u"Assigned to {}".format(summary.assignee)
+            )
+        )
 
-        title = u"[{}] - {} - {}".format(summary.issue, status, summary.title)
-        if summary.assignee:
-            footer = u"Assigned to {}".format(summary.assignee)
-        else:
-            footer = u"This ticket is currently unassigned."
-
+        title = u"[{}] - {}".format(summary.issue, summary.title)
         attachment = {
             "fallback": title,
             "title": title,
@@ -194,50 +229,50 @@ class JiraMessageHandler(object):
 
         return attachment
 
-    def _do_handle_jira_match(self, channel_id, issue, attachment_func):
-        last_mention = self._channel_cache[channel_id].get(issue)
-        now = int(time.time())
+    def _get_summaries(self, channel_id, issues):
+        summaries = (
+            self._slack_jira.get_summary(i)
+            for i in issues if self._message_timer.check_issue(channel_id, i)
+        )
+        # Remove any entries that did not return a summary
+        summaries = filter(None, summaries)
+        # Log all of these summaries in our timer so we ignore them
+        self._message_timer.log_issues(channel_id, (s.issue for s in summaries))
 
-        # Make sure that this ticket was last mentioned outside of our
-        # minimium response threshold
-        if last_mention and (now - self._response_threshold) <= last_mention:
-            return
+        return summaries
 
-        summary = self._slack_jira.get_summary(issue)
-        # We only want to handle valid issues that return real tickets
-        if not summary:
-            return
-
-        # Finally, issue was not mentioned recently and is valid
-        self._channel_cache[channel_id][issue] = now
-        return attachment_func(summary)
-
-    def handle_short_issue_mention(self, message):
+    def handle_mention(self, message):
         """
-        Handles issue mentions in a message and respons with "short" message attachments.
+        Handle a message that contains JIRA ticket mentions and respond to it with
+        attachments of JIRA summaries
 
         :param message: The message, as returned by slackbot
+        :type message: slackbot.dispatcher.Message
         """
-        issues = [i.upper() for i in self.JIRA_ISSUE_RE.findall(message.body.get("text", ""))]
-
-        # If we exceed our max jira mentions in one message, ignore the message
+        issues = {i.upper() for i in self.JIRA_ISSUE_RE.findall(message.body.get("text", ""))}
         if len(issues) > self._max_issues:
-            logger.debug("Ignoring issue mentions %s, exceeded max issues threshold", issues)
-            return
+            return logger.debug("Ignoring issue mentions %s, exceeded max issues threshold", issues)
 
-        attachments = []
         channel_id = message.body.get("channel")
+        if not channel_id:
+            return logger.error("Unable to acquire channel_id, ignoring message")
 
-        # Iterate through all issues and create an attachment for each
-        for issue in issues:
-            summary_attachment = self._do_handle_jira_match(
-                channel_id=channel_id,
-                issue=issue,
-                attachment_func=self.get_short_attachment,
-            )
-            if summary_attachment:
-                attachments.append(summary_attachment)
+        get_summaries = functools.partial(self._get_summaries, channel_id)
 
-        # Only respond if we have at least one valid attachment
+        if not self._full_attachments:
+            # TODO: Separation of long vs short attachments could be better, this will do for now
+            issues = {i.replace("!", "") for i in issues}
+            attachments = map(self.get_short_attachment, get_summaries(issues)) or []
+        else:
+            # Extract long + short issues
+            long_issues = {i[1:] for i in issues if i.startswith("!")}
+            short_issues = issues - long_issues
+
+            # Extract JIRA summaries from the issues and convert them into attachments
+            long_attachments = map(self.get_full_attachment, get_summaries(long_issues)) or []
+            short_attachments = map(self.get_short_attachment, get_summaries(short_issues)) or []
+            attachments = short_attachments + long_attachments
+
         if attachments:
+            logger.info("Sent {} attachments".format(len(attachments)))
             message.send_webapi("", attachments=attachments)

@@ -39,7 +39,7 @@ def load_config_from_path(path):
     return conf
 
 
-def get_config_value(config_parser, section, option, required=True, get_type=str):
+def get_config_value(config_parser, section, option, required=True, get_type=str, default=None):
     """
     Retrieves a config value from a config parser.
 
@@ -52,7 +52,7 @@ def get_config_value(config_parser, section, option, required=True, get_type=str
     :type required: bool
     :param required: If set to true and an option is missing, an error will be raised.
         Otherwise, None will be returned.
-    :param get_type:
+    :param get_type: Specify the config parser type, either int|bool|str
 
     :rtype: str
     :return: The value extracted from the ConfigParser object
@@ -62,6 +62,8 @@ def get_config_value(config_parser, section, option, required=True, get_type=str
     """
     if get_type is int:
         getter = config_parser.getint
+    elif get_type is bool:
+        getter = config_parser.getboolean
     else:
         getter = config_parser.get
 
@@ -70,7 +72,7 @@ def get_config_value(config_parser, section, option, required=True, get_type=str
     except ConfigParser.Error:
         if required:
             raise ConfigError("Missing configuration '{}' in section '{}'".format(option, section))
-        return None
+        return default
 
     return value
 
@@ -99,6 +101,7 @@ __JIRA_MSG_HANDLER_CONFIG_FIELDS = [
     "max_issues",
     "response_threshold",
     "ticket_cache_size",
+    "full_attachments",
 ]
 
 
@@ -108,11 +111,12 @@ class JiraMsgHandlerConfig(collections.namedtuple("JiraMsgHandlerConfig",
 
     @staticmethod
     def from_config(conf, section="jira_message_handler"):
-        get_value = functools.partial(get_config_value, conf, section, get_type=int, required=False)
+        get_value = functools.partial(get_config_value, conf, section, required=False)
         return JiraMsgHandlerConfig(
-            max_issues=get_value("max_issues"),
-            response_threshold=get_value("response_threshold"),
-            ticket_cache_size=get_value("ticket_cache_size"),
+            max_issues=get_value("max_issues", get_type=int),
+            response_threshold=get_value("response_threshold", get_type=int),
+            ticket_cache_size=get_value("ticket_cache_size", get_type=int),
+            full_attachments=get_value("full_attachments", get_type=bool, default=True),
         )
 
 

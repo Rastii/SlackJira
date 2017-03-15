@@ -26,10 +26,10 @@ def get_jira_msg_handler(conf=None):
         ticket_cache_size=jira_msg_handler_config.ticket_cache_size,
     )
 
-
+# TODO: register these plugins into a singleton instead of using this module based importation
 jira_msg_handler = get_jira_msg_handler()
 
 
-@bot.listen_to(slack_jira.handlers.JiraMessageHandler.JIRA_ISSUE_RE_STR, re.IGNORECASE)
-def jira_match(message):
-    jira_msg_handler.handle_short_issue_mention(message)
+@bot.listen_to(jira_msg_handler.JIRA_ISSUE_RE_STR, re.IGNORECASE)
+def jira_short_match(message):
+    jira_msg_handler.handle_mention(message)
