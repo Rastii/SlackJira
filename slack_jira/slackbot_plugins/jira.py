@@ -26,6 +26,7 @@ def get_jira_msg_handler(conf=None):
         ticket_cache_size=jira_msg_handler_config.ticket_cache_size,
     )
 
+
 # TODO: register these plugins into a singleton instead of using this module based importation
 jira_msg_handler = get_jira_msg_handler()
 

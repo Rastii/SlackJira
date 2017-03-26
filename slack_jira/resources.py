@@ -310,7 +310,6 @@ class SlackBotConfig(object):
         self._errors_to = errors_to
         self._slackbot_plugins = slackbot_plugins
 
-
     def load_into_settings_module(self, module):
         """
         Loads the appropriate settings into the module specified.

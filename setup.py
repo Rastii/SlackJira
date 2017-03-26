@@ -54,4 +54,9 @@ setuptools.setup(
         "websocket-client>=0.40.0",
         "wsgiref>=0.1.2",
     ],
+    extras_require={
+        "lint": [
+            "flake8>=3.3.0",
+        ]
+    }
 )
