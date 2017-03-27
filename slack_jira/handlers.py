@@ -265,8 +265,11 @@ class JiraMessageHandler(object):
             attachments = map(self.get_short_attachment, get_summaries(issues)) or []
         else:
             # Extract long + short issues
-            long_issues = {i[1:] for i in issues if i.startswith("!")}
+            long_issues = {i for i in issues if i.startswith("!")}
             short_issues = issues - long_issues
+            # Generator here to effectively remove the ! since our get_summaries method
+            # is agnostic to "short vs long" issues
+            long_issues = (i[1:] for i in long_issues)
 
             # Extract JIRA summaries from the issues and convert them into attachments
             long_attachments = map(self.get_full_attachment, get_summaries(long_issues)) or []
