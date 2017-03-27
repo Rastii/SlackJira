@@ -31,6 +31,13 @@ def get_jira_msg_handler(conf=None):
 jira_msg_handler = get_jira_msg_handler()
 
 
+# Listen & respond to messages in channel
 @bot.listen_to(jira_msg_handler.JIRA_ISSUE_RE_STR, re.IGNORECASE)
+def jira_short_match(message):
+    jira_msg_handler.handle_mention(message)
+
+
+# Respond to direct messages!
+@bot.respond_to(jira_msg_handler.JIRA_ISSUE_RE_STR, re.IGNORECASE)
 def jira_short_match(message):
     jira_msg_handler.handle_mention(message)

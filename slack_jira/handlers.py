@@ -183,10 +183,10 @@ class JiraMessageHandler(object):
         # Add full description and time estimation info to attachment
         attachment["text"] = summary.description
         if summary.original_estimate and summary.remaining_estimate:
-            attachment["fields"] = {
+            attachment["fields"] = [{
                 "title": u"Original Estimate / Remaining Estimate",
                 "value": u"{} / {}".format(summary.original_estimate, summary.remaining_estimate),
-            }
+            }]
 
         return attachment
 
