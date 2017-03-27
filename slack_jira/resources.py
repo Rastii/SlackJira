@@ -28,17 +28,6 @@ class JiraError(Error):
     """
 
 
-def load_config_from_path(path):
-    conf = ConfigParser.ConfigParser()
-    try:
-        with open(path, "r") as fp:
-            conf.readfp(fp)
-    except IOError as e:
-        raise ConfigError(str(e))
-
-    return conf
-
-
 def get_config_value(config_parser, section, option, required=True, get_type=str, default=None):
     """
     Retrieves a config value from a config parser.
@@ -310,7 +299,7 @@ class SlackBotConfig(object):
         self._errors_to = errors_to
         self._slackbot_plugins = slackbot_plugins
 
-    def load_into_settings_module(self, module):
+    def load_into_settings_module(self, settings_module):
         """
         Loads the appropriate settings into the module specified.
 
@@ -319,24 +308,24 @@ class SlackBotConfig(object):
 
         Perhaps a PR will be created to allow that...
 
-        :param module: The settings module
-        :type module: module
+        :param settings_module: The settings module
+        :type settings_module: module
         """
 
         if self._api_token:
-            module.API_TOKEN = self._api_token
+            settings_module.API_TOKEN = self._api_token
 
         if self._bot_emoji:
-            module.BOT_EMOJI = self._bot_emoji
+            settings_module.BOT_EMOJI = self._bot_emoji
 
         if self._bot_icon:
-            module.BOT_ICON = self._bot_icon
+            settings_module.BOT_ICON = self._bot_icon
 
         if self._errors_to:
-            module.ERRORS_TO = self._errors_to
+            settings_module.ERRORS_TO = self._errors_to
 
         # TODO: Perhaps figure out a better way to do this...
-        module.PLUGINS = set(self._slackbot_plugins)
+        settings_module.PLUGINS = set(self._slackbot_plugins)
 
     @staticmethod
     def from_config(conf, section="slackbot"):

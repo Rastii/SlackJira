@@ -28,6 +28,11 @@ setuptools.setup(
     keywords="slack jira bot",
     # TODO: If docs / tests are added then exclude them!
     packages=setuptools.find_packages(exclude=["docs"]),
+    entry_points={
+        "console_scripts": [
+            "slack_jira=slack_jira.cmdline.runner:main",
+        ],
+    },
     install_requires=[
         "PyJWT>=1.4.2",
         "argparse>=1.2.1",
