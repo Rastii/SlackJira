@@ -25,11 +25,12 @@ or with a longer response:
 
 This is entirely based on whether or not a "!" prefix exists before the ticket.  For example,
 "TICK-1337" will respond with a short message, which includes the following information:
-* Ticket
-* Ticket title (that is also a link to the ticket)
-* Priority
-* Status
-* Assignee
+
+- Ticket
+- Ticket title (that is also a link to the ticket)
+- Priority
+- Status
+- Assignee
 
 The longer response also includes the **description** of the ticket and **time logging**
 information (if it is available).
