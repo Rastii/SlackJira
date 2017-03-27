@@ -16,7 +16,7 @@ setuptools.setup(
     description="Easily configurable slack bot runner for displaying info/links of JIRA tickets",
     long_description=long_description,
     url="https://github.com/Rastii/SlackJira",
-    author="rastii",
+    author="Luke Hritsko",
     license="MIT",
     classifiers=[
         "Development Status :: 3 - Alpha",
